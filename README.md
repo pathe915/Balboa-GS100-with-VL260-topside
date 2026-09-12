@@ -1,235 +1,73 @@
-# Balboa-GS100-with-VL260-topside
+# ESP32 Spa Controller for Balboa GS100
 
-<p align="center">
-  <img src="docs/BalboaGS100Controller.png" width="45%" alt="Balboa GS100 Controller" />
-  <img src="docs/BalboaVL260TopsidePanel.png" width="45%" alt="VL260 Topside Panel" />
-</p>
+This repository is a personal fork of [`kgstorm/Balboa-GS100-with-VL260-topside`](https://github.com/kgstorm/Balboa-GS100-with-VL260-topside).
 
-## Description
+The original project provides the ESP32/ESPHome implementation, hardware interface, protocol handling, and support for Balboa GS100 systems with VL-series topside controllers.
 
-This project adds an Wifi module to a Balboa Hot Tub. This project has been tested with a few Balboa control boards and seems to work with any VL200 series or VL400 series topside controllers. I imagine any 3 or 4-button Balboa topside controllers with RJ45 connectors would have a very similar setup. If your topside controller has a single 'Temp' button instead of Cool and Warm buttons, refer to this slightly modified repo: https://github.com/kgstorm/Balboa-GS5xx
+This fork is maintained independently for my own installation and experiemnts with changes, e.g. more robust heating-mode control, improved behavior when used from Homey and estimated power monitoring.
+Ive also added filter cycle selector and detection.
 
----
+For the original project documentation, hardware information, wiring, and implementation details, see the upstream repository.
 
-## Purchase Option
+## Changes in this fork
 
- If have modules available for purchase. If interested, please email me at kevin.storm@gmail.com. 
+### Estimated power monitoring
 
----
+A `Spa Power` sensor has been added.
 
-## PCB and Project Box Fabrication
+Power consumption is estimated from the pump and heater states using measurements from my hot tub:
 
-The PCB and Project Box files are located in the Production directory. I used JLCPCB to order the PCBs. You should be able to easily order your own PCBs from that website with the provided files. If you use this PCB, I recommend using an ESP32 Devkit V1.
+| Component      | Estimated power |
+| -------------- | --------------: |
+| Pump           |           396 W |
+| Heater         |          2070 W |
+| Pump + heater  |          2466 W |
+| Neither active |             0 W |
 
----
+The power sensor updates immediately when the pump or heater state changes, with a periodic refresh as a fallback.
 
-## Software Installation
+These values are specific to my installation and should be adjusted if different hardware is used.
 
-1. Copy the `esp32-spa.yaml` file and the entire `esp32-spa` folder into your Home Assistant config folder under the `esphome/` subfolder. The folder layout should look like:
+### Independent project identity and versioning
 
-```
-config/
-└── esphome/
-    ├── esp32-spa.yaml
-    └── esp32-spa/
-        ├── __init__.py
-        ├── binary_sensor.py
-        ├── esp32-spa.h
-        └── sensor.py
+This fork uses its own ESPHome project identity:
+
+```text
+pathe915.esp32-spa
 ```
 
-2. Edit the UNITS key in the esp32-spa.yaml file to set the temperature units. 
+Firmware versions are maintained independently from upstream, starting from upstream version `2.8`.
 
-3. In Home Assistant go to **ESPHome**, click **New Device** → **Import From File**, and select `esp32-spa.yaml`.
+For example:
 
-4. `esp32-spa.yaml` will also look for a `secrets.yaml` file inside the **esphome/** folder for the following keys: `api_key`, `wifi_ssid`, `wifi_password`, `ota_password`, and `ap_password`.
-
----
-
-## Wiring
-
-- An attempt was made with an ESP8266, but the Wi‑Fi and ISR requirements (or pin/boot choices) caused persistent boot issues, so the project uses an ESP32 which worked reliably.
-- The 4 buttons on the topside panel act like switches that connect to 5V when pressed, but when not pressed show ~2.5V. To avoid interfering with the panel we used optocouplers to reproduce the switch signals safely.
-- For the data and clock lines we use a simple voltage divider (2.2k and 4.7k) to reduce the voltage down to ~3.4V, then add a 220Ω series resistor to the ESP32 GPIOs.
-
-Wiring Diagram:
-![Wiring diagram](docs/wiring.png)
-
-ESP32 DEVKIT V1 GPIO assignments:
-
-| Spa RJ45 pin | Function | Wiring diagram color | GPIO pin |
-|---:|---|---|---|
-| 1 | VIN | red | VIN |
-| 2 | Warm Button | orange | 25 |
-| 3 | Light Button | purple | 27 |
-| 4 | GND | black | GND |
-| 5 | Display Data | green | 34 |
-| 6 | Clock | yellow | 35 |
-| 7 | Jets Button | blue | 32 |
-| 8 | Cool Button | lime green | 26 |
-
----
-
-## Frontend
-
-This repository includes a Home Assistant custom card for controlling and monitoring the spa. To install the frontend component:
-
-1. Copy `spa-control-card.js` into your Home Assistant `www/` folder (e.g., `config/www/spa-control-card.js`).
-2. Open the dashboard where you want to add the card, click the three-dot menu (upper-right) and select **Manage resources**.
-3. Click **Add resource**, set **URL** to `/local/spa-control-card.js` and **Resourse Type** to `Javascript Module`, then save.
-4. Add the card to your dashboard via **Add Card** → search for **Spa Control Card** or use the raw YAML (below)
-5. For the Device Name, enter whatever you named your esp device. If you did not modify the yaml file, enter 'esp32-spa'. Given the device name, the frontend can discover all the required entities.
-
-```yaml
-type: 'custom:spa-control-card'      # required
-device_name: 'esp32-spa'      # required - replace with your esp device name
-title: 'Hot Tub Control'     # optional - card title
-high_setting: 103         # optional - Temp for one button press to high temp 
-low_setting: 80    # optional - Temp for one button press to low temp
-show_mode_buttons: true   # optional - show/hide Economy/Standard/Sleep buttons (default: true)
-
+```text
+2.8.1
 ```
 
-If the card doesn't appear immediately, try a hard-refresh (Ctrl/Cmd+Shift+R) or clear the browser cache.
+denotes the first fork-specific release based on upstream version 2.8.
 
-![Spa Control Card](docs/spa-card.png)
+### Firmware updates
 
----
+The upstream HTTP firmware update channel has been removed.
 
-## Error Codes
+Firmware is currently built and installed using the normal ESPHome CLI and ESPHome OTA mechanism.
 
-- This integration exposes a `text_sensor` for error codes (sensor.<device name>_spa_error_code). The text sensor shows the 2‑character code from the topside display and a friendly translation when available, for example:
+Example:
 
-  - `HH - high overheat (water temp over 118 F)`
-
----
-
-## Heating Mode
-
-This integration exposes a `text_sensor` for the current heating mode (`sensor.<device_name>_spa_mode`). The possible states are **Standard**, **Economy**, and **Sleep**. Standard mode turns the heater and circulation pump on whenever the measured temperature drops below the set temperature. Economy only heats when the circulation pumps are programmed to run. Sleep mode also only heats when the circulation pumps are programmed to run, but also only heats to ~10C/20F below the set temperature. 
-
-The mode is detected by reading the 7-segment display characters `St`, `Ec`, or `SL` that the Balboa controller briefly shows during mode selection. The device automatically reads the current mode on boot (and every 30 minutes) by pressing the Cool button followed by the Light button.
-
-## Home Assistant Entities
-
-The device exposes the following entities in Home Assistant:
-
-- `sensor.<device_name>_spa_measured_temp` — current water temperature
-- `sensor.<device_name>_spa_set_temp` — current set temperature
-- `binary_sensor.<device_name>_spa_heater_status` — heater on/off
-- `binary_sensor.<device_name>_spa_pump_status` — pump/jets on/off
-- `binary_sensor.<device_name>_spa_light_status` — light on/off
-- `text_sensor.<device_name>_spa_error_code` — current error code with friendly translation
-- `text_sensor.<device_name>_spa_mode` — current heating mode (`Standard`, `Economy`, `Sleep`)
-- `sensor.<device_name>_spa_filter_mode` — current filter mode
-- `select.<device_name>_spa_filter_cycle` — filter cycle selector
-- `select.<device_name>_spa_display_unit` — temperature unit selector (`°C` / `°F`)
-- `select.<device_name>_spa_heating_mode` — heating mode selector (`Standard`, `Economy`, `Sleep`)
-- `number.<device_name>_spa_high_temperature` — configurable high preset (15-105 in the selected display unit)
-- `number.<device_name>_spa_low_temperature` — configurable low preset (15-105 in the selected display unit)
-- `button.<device_name>_spa_warm` — virtual warm button press
-- `button.<device_name>_spa_cool` — virtual cool button press
-- `button.<device_name>_set_spa_high` — apply the configured high temperature preset
-- `button.<device_name>_set_spa_low` — apply the configured low temperature preset
-- `button.<device_name>_spa_lights` — virtual lights button press
-- `button.<device_name>_spa_pumps` — virtual pumps/jets button press
-
-### Example Home Assistant automation (mobile push notification)
-
-Trigger a mobile push when a new error code appears (replace `notify.mobile_app_YOUR_DEVICE_NAME` with your device):
-
-```yaml
-alias: "Spa Error Notification"
-triggers:
-  - platform: state
-    entity_id: sensor.esp32_spa_spa_error_code
-condition:
-  - condition: template
-    value_template: >
-      {% set s = states('sensor.esp32_spa_spa_error_code') | lower %}
-      {{ s not in ['', 'unknown', 'none', 'unavailable'] }}
-action:
-  - service: notify.mobile_app_YOUR_DEVICE_NAME
-    data:
-      title: "Spa Alert"
-      message: "{{ states('sensor.esp32_spa_spa_error_code') }}"
-mode: single
+```bash
+esphome run esp32-spa.yaml
 ```
 
-## Measurements
+## Upstream project
 
-- The clock stream consists of 4 packets of data: three packets of 7 bits and a final packet with 3 bits.
+This project would not exist without the work in:
 
-- Packet 1 (bits referenced MSB→LSB as 6 5 4 3 2 1 0):
-  - Bits 5 and 4 HIGH indicate a `1` in the hundreds digit (Fahrenheit display).
-  - Bit 2 is the heater status (when the heater is on this bit pulses).
+[`kgstorm/Balboa-GS100-with-VL260-topside`](https://github.com/kgstorm/Balboa-GS100-with-VL260-topside)
 
-- Packets 2 & 3: used for the display characters where each bit maps to a segment of the 7-segment display. Here is the bit mapping (MSB→LSB):
+Refer to the upstream repository for the original design, wiring, hardware documentation, protocol implementation, and project history.
 
-```
-Bit -> Segment
-6   = top
-5   = top-right
-4   = bottom-right
-3   = bottom
-2   = bottom-left
-1   = top-left
-0   = center
-```
+## License
 
-- Given the above bit mapping, the nubmer 7 would illuminate the top, top-right, and bottom-right segments, so those bits would be HIGH and the packet would look like this: 1110000.
+This fork remains distributed under the MIT License.
 
-- Packet 4 (3 bits):
-  - Bit 2 = pump status
-  - Bit 1 = light status
-
- - The remaining bits always appear LOW in my observation. I use them as a frame checksum. They are: Packet 1 bits 6, 3, 1, 0 and Packet 4 bit 0 (MSB to LSB).
-
-
-- Timing observations (from logic analyzer):
-  - Clock pulses: ~16 µs ON with ~21 µs gap between pulses.
-  - Data pulses: ~17.5 µs with ~20 µs gap; data is sampled on the rising edges of the clock.
-  - Each frame consists of 24 bits (4 packets of 7 bits, 7 bits, 7 bits, and 3 bits)
-  - Between each frame is a LOW segment of ~19ms.
-
-Logic analyzer screenshot:
-- In the screenshot below, the top signal is the data signal and the bottom is the clock.
-  - Packet 1 (bits 6543210)
-    - bit 6, 1, 0 LOW: used as a checksum (always LOW)
-    - bit 5, 4 LOW: indicates the hundreds digit of the display will be blank
-    - bit 2 HIGH: indicates the heater is on
-  - Packet 2 (bits 6543210)
-    - bit 6, 5, 4 HIGH: Translates into the number 7
-  - Packet 3 (bits 6543210)
-    - bit 6, 5, 4, 1, 0 HIGH: Translates into the number 9
-  - Therefore the display will show the temp of 79 degrees
-  - Packet 4 (bits 210)
-    - bit 2 HIGH: indicates the jets (in this case the circulation pump) is on
-    - bit 1 LOW: indicates the lights are off
-    - bit 0 LOW: used as a checksum (always LOW)
-
-![Logic Analyzer](docs/logicAnalyzer.png)
-
----
-
-
-## Images
-
-
-![PCB](docs/pcb.jpg)
-
-![Project Box](docs/box.jpg)
-
-![Mounted](docs/mounted.jpg)
-
----
-
-
-## Other Balboa projects
-
-- Balboa-GS510SZ with panel VL700S: https://github.com/MagnusPer/Balboa-GS510SZ
-- GL2000 Series: https://github.com/netmindz/balboa_GL_ML_spa_control
-- BP Series: https://github.com/ccutrer/balboa_worldwide_app
-- GS523SZ: https://github.com/Shuraxxx/-Balboa-GS523SZ-with-panel-VL801D-DeluxeSerie--MQTT
-
-
+The original copyright and license notice from the upstream project are retained in the `LICENSE` file.
