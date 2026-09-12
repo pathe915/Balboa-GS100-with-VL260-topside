@@ -1,11 +1,11 @@
 substitutions:
-  version: "3.2"
+  version: "3.2.1"
 
 esphome:
   name: esp32-spa
   friendly_name: esp32-spa
   project:
-    name: "kgstorm.esp32-spa"
+    name: "pathe915.esp32-spa"
     version: ${version}
 
   on_boot:
@@ -30,8 +30,6 @@ api:
 ota:
   - platform: esphome
     password: !secret ota_password
-  - platform: http_request
-    id: ota_http
 
 wifi:
   # Enable fallback hotspot (captive portal) in case wifi connection fails
@@ -42,19 +40,6 @@ wifi:
 captive_portal:
 
 logger:
-
-http_request:
-  useragent: esphome/esp32-spa
-  timeout: 20s
-  buffer_size_rx: 2048
-  buffer_size_tx: 1024
-  redirect_limit: 5
-
-update:
-  - platform: http_request
-    name: "Firmware Update"
-    source: https://kgstorm.github.io/Balboa-GS100-with-VL260-topside/firmware/manifest.json
-    update_interval: 6h
 
 globals:
   - id: display_is_fahrenheit
@@ -141,15 +126,42 @@ sensor:
             if (id(display_is_fahrenheit)) return (x - 32.0f) * 5.0f / 9.0f;
             return x;
 
+  - platform: template
+    name: "Spa Power"
+    id: spa_power
+    unit_of_measurement: "W"
+    device_class: power
+    state_class: measurement
+    accuracy_decimals: 0
+    update_interval: 10s
+    lambda: |-
+      float power = 0.0f;
+
+      if (id(spa_pump_status).state)
+        power += 396.0f;
+
+      if (id(spa_heater_status).state)
+        power += 2070.0f;
+
+      return power;
+
 binary_sensor:
   - platform: inputs
     parent_id: display_handler
     type: heater
+    id: spa_heater_status
     name: "Spa Heater Status"
+    on_state:
+      - component.update: spa_power
+
   - platform: inputs
     parent_id: display_handler
     type: pump
+    id: spa_pump_status
     name: "Spa Pump Status"
+    on_state:
+      - component.update: spa_power
+
   - platform: inputs
     parent_id: display_handler
     type: light
