@@ -4,3 +4,4 @@ secrets.yaml
 build/
 __pycache__/
 *.pyc
+.codex-container
